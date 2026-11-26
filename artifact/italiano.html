@@ -1,0 +1,789 @@
+<title>Lezione d'Italiano</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Nunito:wght@400;600;700&display=swap">
+<style>
+  /* Layout: one-screen app. Figure fills the upper stage, speech bubble and controls sit in the lower third. */
+  :root {
+    --bg: #e9efdc;          /* pistacchio */
+    --bg-deep: #d7e2c2;
+    --ink: #2e1f33;         /* melanzana */
+    --muted: #6e6474;
+    --accent: #d6452f;      /* pomodoro */
+    --accent-ink: #ffffff;
+    --listen: #2f8f55;      /* basilico */
+    --surface: #fbfcf7;
+    --surface-2: rgba(255, 255, 255, 0.6);
+    --line: rgba(46, 31, 51, 0.14);
+    --shadow: rgba(46, 31, 51, 0.14);
+    --font-display: "Fredoka", "Nunito", ui-rounded, system-ui, sans-serif;
+    --font-body: "Nunito", ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1f1a26; --bg-deep: #151119; --ink: #f1ecf4; --muted: #b0a6b8;
+      --accent: #ef6a52; --accent-ink: #1f1a26; --listen: #4cc27c;
+      --surface: #2b2433; --surface-2: rgba(255, 255, 255, 0.08);
+      --line: rgba(241, 236, 244, 0.16); --shadow: rgba(0, 0, 0, 0.4);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1f1a26; --bg-deep: #151119; --ink: #f1ecf4; --muted: #b0a6b8;
+    --accent: #ef6a52; --accent-ink: #1f1a26; --listen: #4cc27c;
+    --surface: #2b2433; --surface-2: rgba(255, 255, 255, 0.08);
+    --line: rgba(241, 236, 244, 0.16); --shadow: rgba(0, 0, 0, 0.4);
+    color-scheme: dark;
+  }
+
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    background: radial-gradient(120% 70% at 50% 30%, var(--bg) 40%, var(--bg-deep));
+    background-color: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 16px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #app {
+    position: relative;
+    box-sizing: border-box;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 12px 14px;
+  }
+  #stage-wrap { position: relative; flex: 1 1 auto; min-height: 180px; }
+  #stage { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: pointer; touch-action: manipulation; }
+
+  #zzz { position: absolute; top: 12%; left: 62%; font-family: var(--font-display); font-weight: 600; color: var(--muted); pointer-events: none; }
+  #zzz span { position: absolute; opacity: 0; animation: zzz 3s infinite ease-out; }
+  #zzz span:nth-child(1) { font-size: 16px; }
+  #zzz span:nth-child(2) { font-size: 22px; animation-delay: 1s; }
+  #zzz span:nth-child(3) { font-size: 30px; animation-delay: 2s; }
+  @keyframes zzz { 0% { transform: translate(0,0); opacity: 0 } 20% { opacity: .9 } 100% { transform: translate(34px,-60px); opacity: 0 } }
+
+  .icon-btn {
+    width: 44px; height: 44px; border-radius: 50%; border: 0;
+    display: grid; place-items: center;
+    background: var(--surface-2); color: var(--ink); cursor: pointer;
+  }
+  .icon-btn:focus-visible, #mic:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  #menu-btn { position: absolute; top: 0; right: 0; z-index: 2; }
+
+  #talk { display: flex; flex-direction: column; gap: 8px; flex: 0 0 auto; }
+  #you {
+    align-self: flex-end; max-width: 85%; margin: 0; padding: 7px 12px;
+    border-radius: 16px 16px 4px 16px; background: var(--surface-2); color: var(--muted); font-size: 15px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  #bubble {
+    margin: 0; padding: 14px 16px; border-radius: 20px 20px 20px 6px;
+    background: var(--surface); box-shadow: 0 6px 22px var(--shadow);
+    font-size: 17px; line-height: 1.45; max-height: 32vh; overflow-y: auto; min-width: 0;
+    overflow-wrap: anywhere; transition: opacity .4s;
+  }
+  #bubble.error { color: var(--accent); }
+  #bubble.thinking { color: var(--muted); font-style: italic; }
+  body:not(.awake) #bubble { opacity: 0; }
+
+  #hint {
+    text-align: center; margin: 10px 0 0; font-family: var(--font-display); font-size: 19px; color: var(--muted);
+    animation: pulse 2.4s infinite; cursor: pointer; background: none; border: 0; width: 100%;
+  }
+  @keyframes pulse { 50% { opacity: .45 } }
+
+  #controls { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; }
+  body:not(.awake) #controls, body:not(.awake) #textform { display: none; }
+  #mic {
+    width: 72px; height: 72px; border-radius: 50%; border: 0; cursor: pointer;
+    background: var(--accent); color: var(--accent-ink); display: grid; place-items: center;
+    box-shadow: 0 8px 20px var(--shadow); transition: transform .15s, background .2s;
+  }
+  #mic:active { transform: scale(.94); }
+  #mic.recording { background: var(--listen); animation: ring 1.3s infinite; }
+  @keyframes ring { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--listen) 50%, transparent) } 100% { box-shadow: 0 0 0 22px transparent } }
+  #speak-toggle[aria-pressed="false"] { opacity: .55; }
+
+  #textform { display: flex; gap: 8px; margin-top: 10px; }
+  #textinput {
+    flex: 1; min-width: 0; font: inherit; font-size: 17px; padding: 12px 14px;
+    border-radius: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  }
+  #textform button { border: 0; border-radius: 14px; width: 50px; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; cursor: pointer; }
+  #tip { margin: 6px 2px 0; font-size: 13px; color: var(--muted); text-align: center; }
+
+  #panel {
+    position: absolute; inset: 0; z-index: 5; display: flex; align-items: flex-end;
+    background: color-mix(in srgb, var(--ink) 35%, transparent);
+  }
+  #panel-inner {
+    width: 100%; max-height: 85%; overflow-y: auto; background: var(--surface); color: var(--ink);
+    border-radius: 20px 20px 0 0; padding: 20px max(16px, env(safe-area-inset-left, 0px)) calc(20px + env(safe-area-inset-bottom, 0px));
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  #panel h2 { font-family: var(--font-display); font-weight: 600; margin: 0; font-size: 22px; }
+  #panel h3 { font-family: var(--font-display); font-weight: 500; margin: 6px 0 0; font-size: 16px; }
+  #memory-text { white-space: pre-wrap; font-size: 14px; line-height: 1.5; margin: 0; padding: 12px; border-radius: 12px; background: var(--surface-2); max-height: 38vh; overflow-y: auto; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn { font: inherit; font-weight: 600; padding: 10px 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+  .btn.danger { color: var(--accent); }
+  .note { font-size: 13px; color: var(--muted); margin: 0; }
+  @media (prefers-reduced-motion: reduce) { #zzz span, #hint, #mic.recording { animation: none; } #zzz span { opacity: .7; position: static; } }
+</style>
+
+<main id="app">
+  <div id="stage-wrap">
+    <canvas id="stage" aria-label="Deine Italienischlehrerin"></canvas>
+    <div id="zzz" aria-hidden="true"><span>z</span><span>z</span><span>Z</span></div>
+    <button id="menu-btn" class="icon-btn" aria-label="Gedächtnis und Einstellungen">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg>
+    </button>
+  </div>
+
+  <section id="talk" aria-live="polite">
+    <p id="you" hidden></p>
+    <p id="bubble"><span id="bubble-text"></span></p>
+  </section>
+
+  <button id="hint" type="button">Tippe, um sie zu wecken</button>
+
+  <footer id="controls">
+    <button id="speak-toggle" class="icon-btn" aria-pressed="true" aria-label="Vorlesen an oder aus">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+    </button>
+    <button id="mic" aria-label="Sprechen">
+      <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4"/></svg>
+    </button>
+    <button id="stop-btn" class="icon-btn" aria-label="Sie unterbrechen">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+    </button>
+  </footer>
+
+  <form id="textform" autocomplete="off">
+    <input id="textinput" type="text" autocapitalize="sentences" enterkeyhint="send" placeholder="Scrivi o detta qui…" aria-label="Deine Antwort">
+    <button type="submit" aria-label="Senden">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </button>
+  </form>
+  <p id="tip" hidden>Zum Sprechen: ins Feld tippen und das Mikrofon auf deiner Tastatur benutzen.</p>
+
+  <div id="panel" hidden>
+    <div id="panel-inner" role="dialog" aria-labelledby="panel-title">
+      <h2 id="panel-title">Was sie über dich weiß</h2>
+      <pre id="memory-text"></pre>
+      <p class="note" id="memory-meta"></p>
+      <div class="row">
+        <button class="btn" id="panel-close" type="button">Schließen</button>
+        <button class="btn danger" id="forget-btn" type="button">Alles vergessen</button>
+      </div>
+      <div class="row" id="forget-confirm" hidden>
+        <p class="note" style="flex-basis:100%">Wirklich? Sie vergisst dann deinen Namen, deine Fortschritte und alle Themen.</p>
+        <button class="btn" id="forget-no" type="button">Nein, behalten</button>
+        <button class="btn primary" id="forget-yes" type="button">Ja, vergessen</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
+
+const $ = (id) => document.getElementById(id);
+const GOODBYE = "[[CIAO]]";
+
+/* ================================================================== */
+/* Figure: shaggy fur ball (shell fur)                                 */
+/* ================================================================== */
+
+const damp = (a, b, k, dt) => a + (b - a) * (1 - Math.exp(-k * dt));
+
+function makeNoiseTexture() {
+  const size = 256, grid = 16;
+  const data = new Uint8Array(size * size * 4);
+  const lattice = Array.from({ length: (grid + 1) * (grid + 1) }, () => Math.random());
+  const sm = (a, b, t) => a + (b - a) * (t * t * (3 - 2 * t));
+  const at = (i, j) => lattice[(j % grid) * (grid + 1) + (i % grid)];
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const gx = (x / size) * grid, gy = (y / size) * grid, ix = Math.floor(gx), iy = Math.floor(gy);
+    const v = sm(sm(at(ix, iy), at(ix + 1, iy), gx - ix), sm(at(ix, iy + 1), at(ix + 1, iy + 1), gx - ix), gy - iy);
+    const i = (y * size + x) * 4;
+    data[i] = Math.random() * 255; data[i + 1] = v * 255; data[i + 2] = Math.random() * 255; data[i + 3] = 255;
+  }
+  const tex = new THREE.DataTexture(data, size, size);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.magFilter = tex.minFilter = THREE.NearestFilter;
+  tex.needsUpdate = true;
+  return tex;
+}
+
+const furVertex = `
+uniform float uLayer; uniform float uLen; uniform float uTime; uniform float uSway; uniform sampler2D uNoise;
+varying vec2 vUv; varying vec3 vNormal; varying float vFace; varying float vClump;
+void main() {
+  vec3 n = normalize(normal);
+  float face = smoothstep(0.62, 0.86, dot(n, normalize(vec3(0.0, 0.05, 1.0))));
+  float crown = smoothstep(0.55, 1.0, n.y);
+  float clump = texture2D(uNoise, uv * vec2(3.0, 1.5)).g;
+  float len = uLen * mix(1.0, 0.12, face) * (1.0 + 0.9 * crown) * mix(0.65, 1.35, clump);
+  float k = uLayer * uLayer;
+  vec3 p = position + n * len * uLayer;
+  p.y -= k * len * (0.9 + crown) * mix(0.35, 1.0, smoothstep(-0.9, 0.2, n.y));
+  p.x += sin(uTime * 1.7 + position.y * 5.0) * 0.012 * k * uSway;
+  p.z += cos(uTime * 1.3 + position.x * 4.0) * 0.008 * k * uSway;
+  vUv = uv; vFace = face; vClump = clump;
+  vNormal = normalize(normalMatrix * n);
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+}`;
+const furFragment = `
+uniform float uLayer; uniform sampler2D uNoise; uniform vec3 uColorA; uniform vec3 uColorB;
+varying vec2 vUv; varying vec3 vNormal; varying float vFace; varying float vClump;
+void main() {
+  vec4 nz = texture2D(uNoise, vUv * vec2(64.0, 32.0));
+  float strand = nz.r * mix(0.55, 1.0, vClump);
+  if (uLayer > 0.0 && strand < uLayer) discard;
+  vec3 col = mix(uColorA, uColorB, vClump * 0.8 + nz.b * 0.2);
+  col = mix(col, uColorB * 1.15, vFace * 0.5);
+  float light = 0.55 + 0.45 * max(dot(normalize(vNormal), normalize(vec3(0.4, 0.7, 0.6))), 0.0);
+  float ao = mix(0.42, 1.08, uLayer);
+  float rim = pow(1.0 - max(vNormal.z, 0.0), 2.0) * 0.25 * uLayer;
+  gl_FragColor = vec4(col * light * ao + rim, 1.0);
+}`;
+
+class Figure {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.scene = new THREE.Scene();
+    this.camera = new THREE.PerspectiveCamera(30, 1, 0.1, 50);
+    this.scene.add(new THREE.HemisphereLight(0xfff4e6, 0x8a6f9e, 1.6));
+    const key = new THREE.DirectionalLight(0xffffff, 1.8); key.position.set(2, 3, 4); this.scene.add(key);
+    this.mood = "sleeping"; this.moodTime = 0; this.mouthTarget = 0;
+    this.eyeOpen = 0; this.mouth = 0; this.lookX = 0; this.lookY = 0;
+    this.blinkIn = 2; this.blink = 0; this.lookIn = 1; this.look = new THREE.Vector2();
+    this.build();
+    this.resize();
+    new ResizeObserver(() => this.resize()).observe(canvas);
+    this.last = performance.now();
+    this.renderer.setAnimationLoop(() => this.tick());
+  }
+
+  build() {
+    const root = (this.root = new THREE.Group());
+    const body = (this.body = new THREE.Group());
+    root.add(body);
+    this.scene.add(root);
+    // soft shadow
+    const c = document.createElement("canvas"); c.width = c.height = 128;
+    const g = c.getContext("2d"); const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gr.addColorStop(0, "rgba(40,20,50,0.35)"); gr.addColorStop(1, "rgba(40,20,50,0)"); g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+    const shadow = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 2.6), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }));
+    shadow.rotation.x = -Math.PI / 2; shadow.position.y = -1.12; this.scene.add(shadow);
+
+    const noise = makeNoiseTexture();
+    const geo = new THREE.SphereGeometry(1, 96, 64);
+    this.shells = [];
+    const SHELLS = 30;
+    for (let i = 0; i < SHELLS; i++) {
+      const mat = new THREE.ShaderMaterial({
+        vertexShader: furVertex, fragmentShader: furFragment,
+        uniforms: {
+          uLayer: { value: i / (SHELLS - 1) }, uLen: { value: 0.26 }, uTime: { value: 0 }, uSway: { value: 1 },
+          uNoise: { value: noise }, uColorA: { value: new THREE.Color("#8a5cc4") }, uColorB: { value: new THREE.Color("#c9a3f0") },
+        },
+      });
+      this.shells.push(mat);
+      const m = new THREE.Mesh(geo, mat); m.renderOrder = i; body.add(m);
+    }
+
+    const black = new THREE.MeshStandardMaterial({ color: 0x1b1020, roughness: 0.2 });
+    this.eyes = []; this.eyeWhites = []; this.pupils = [];
+    for (const side of [-1, 1]) {
+      const eye = new THREE.Group(); eye.position.set(side * 0.34, 0.24, 0.93);
+      const wm = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
+      const ball = new THREE.Mesh(new THREE.SphereGeometry(0.2, 32, 24), wm); ball.scale.z = 0.6; eye.add(ball);
+      const pupil = new THREE.Group();
+      const p = new THREE.Mesh(new THREE.SphereGeometry(0.11, 24, 16), black); p.scale.z = 0.5; pupil.add(p);
+      const glint = new THREE.Mesh(new THREE.SphereGeometry(0.035, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+      glint.position.set(0.04, 0.045, 0.05); pupil.add(glint); pupil.position.z = 0.1; eye.add(pupil);
+      this.eyes.push(eye); this.eyeWhites.push(wm); this.pupils.push(pupil); body.add(eye);
+    }
+    const nose = new THREE.Mesh(new THREE.SphereGeometry(0.075, 20, 14), new THREE.MeshStandardMaterial({ color: 0x6b2d5c, roughness: 0.35 }));
+    nose.position.set(0, 0.04, 1.08); body.add(nose);
+    const mouth = (this.mouthObj = new THREE.Group());
+    mouth.add(new THREE.Mesh(new THREE.CircleGeometry(0.16, 32), new THREE.MeshBasicMaterial({ color: 0x3a0f2a })));
+    const tongue = new THREE.Mesh(new THREE.CircleGeometry(0.09, 24), new THREE.MeshBasicMaterial({ color: 0xe8657f }));
+    tongue.position.set(0, -0.07, 0.002); tongue.scale.y = 0.6; mouth.add(tongue);
+    mouth.position.set(0, -0.2, 1.03); mouth.rotation.x = -0.2; body.add(mouth);
+    const cheekMat = new THREE.MeshBasicMaterial({ color: 0xff8fb1, transparent: true, opacity: 0.45 });
+    for (const side of [-1, 1]) {
+      const cheek = new THREE.Mesh(new THREE.CircleGeometry(0.1, 20), cheekMat);
+      cheek.position.set(side * 0.55, -0.05, 0.86); cheek.lookAt(side * 1.4, -0.1, 2.4); body.add(cheek);
+    }
+    const footMat = new THREE.MeshStandardMaterial({ color: 0x6d3fa3, roughness: 0.9 });
+    for (const side of [-1, 1]) {
+      const foot = new THREE.Mesh(new THREE.SphereGeometry(0.22, 20, 14), footMat);
+      foot.scale.set(1.2, 0.55, 1.5); foot.position.set(side * 0.42, -1.02, 0.35); root.add(foot);
+    }
+    // scarf in the colours of the flag
+    const sg = new THREE.TorusGeometry(0.88, 0.1, 16, 96);
+    const cols = [], pos = sg.attributes.position;
+    const palette = [new THREE.Color("#2f9e55"), new THREE.Color("#f7f3ea"), new THREE.Color("#d8413a")];
+    for (let i = 0; i < pos.count; i++) {
+      const a = Math.atan2(pos.getY(i), pos.getX(i));
+      const c2 = palette[Math.floor(((a + Math.PI) / (2 * Math.PI)) * 18) % 3]; cols.push(c2.r, c2.g, c2.b);
+    }
+    sg.setAttribute("color", new THREE.Float32BufferAttribute(cols, 3));
+    const scarf = new THREE.Mesh(sg, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 }));
+    scarf.rotation.x = Math.PI / 2 + 0.12; scarf.position.y = -0.5; scarf.scale.set(1.06, 1.06, 1); body.add(scarf);
+    root.scale.setScalar(0.95);
+  }
+
+  setMood(m) { if (m !== this.mood) { this.mood = m; this.moodTime = 0; } }
+  setMouth(v) { this.mouthTarget = v; }
+
+  resize() {
+    const w = this.canvas.clientWidth, h = this.canvas.clientHeight;
+    if (!w || !h) return;
+    this.renderer.setSize(w, h, false);
+    this.camera.aspect = w / h;
+    // fit the ~2.6 unit tall figure into the stage, whatever its shape
+    const fitH = 2.9 / (2 * Math.tan((this.camera.fov * Math.PI) / 360));
+    const fitW = fitH * (1.15 / Math.min(1, this.camera.aspect));
+    this.camera.position.set(0, 0.2, Math.max(fitH, fitW));
+    this.camera.lookAt(0, -0.02, 0);
+    this.camera.updateProjectionMatrix();
+  }
+
+  tick() {
+    const now = performance.now();
+    const dt = Math.min((now - this.last) / 1000, 0.05); this.last = now;
+    const t = now / 1000; this.moodTime += dt;
+    const mood = this.mood, mt = this.moodTime;
+
+    let open = 1;
+    if (mood === "sleeping") open = 0;
+    else if (mood === "dozing") open = 0.25;
+    else if (mood === "waking") open = mt < 0.6 ? 0.15 : mt < 0.8 ? 0.6 : mt < 0.95 ? 0.1 : Math.min(1, (mt - 0.95) * 2);
+    else if (mood === "listening") open = 1.12;
+    this.blinkIn -= dt;
+    if (this.blinkIn <= 0 && open > 0.5) { this.blink = 0.14; this.blinkIn = 2.5 + Math.random() * 3.5; }
+    if (this.blink > 0) { this.blink -= dt; open = 0.05; }
+    this.eyeOpen = damp(this.eyeOpen, open, mood === "sleeping" ? 3 : 18, dt);
+
+    this.lookIn -= dt;
+    if (this.lookIn <= 0) {
+      this.lookIn = 1.5 + Math.random() * 2.5;
+      this.look.set((Math.random() - 0.5) * 0.6, (Math.random() - 0.5) * 0.3);
+      if (mood === "talking" || mood === "listening") this.look.multiplyScalar(0.3);
+    }
+    let lx = this.look.x, ly = this.look.y;
+    if (mood === "thinking") { lx = 0.35 * Math.sin(t * 0.7); ly = 0.45; }
+    this.lookX = damp(this.lookX, lx, 6, dt); this.lookY = damp(this.lookY, ly, 6, dt);
+    const mTarget = mood === "talking" ? this.mouthTarget : mood === "waking" && mt > 1 && mt < 1.9 ? 0.9 : 0;
+    this.mouth = damp(this.mouth, mTarget, 22, dt);
+
+    // body
+    const sleepy = mood === "sleeping" || mood === "dozing";
+    const breath = Math.sin(t * (sleepy ? 1.3 : 2.2)) * (sleepy ? 0.035 : 0.018);
+    let sy = 1 + breath, sx = 1 - breath * 0.5, y = 0, tilt = 0, lean = 0;
+    if (mood === "waking") {
+      const s = Math.sin(Math.min(mt / 1.6, 1) * Math.PI); sy += s * 0.12; sx -= s * 0.06;
+      if (mt > 1.7 && mt < 2.2) y = Math.sin(((mt - 1.7) / 0.5) * Math.PI) * 0.25;
+    } else if (sleepy) { tilt = 0.12; lean = 0.08; }
+    else {
+      y = Math.sin(t * 1.6) * 0.03; tilt = Math.sin(t * 0.8) * 0.04;
+      if (mood === "listening") { lean = -0.12; tilt = 0.14; }
+      if (mood === "talking") { y += this.mouth * 0.05; tilt += Math.sin(t * 3.1) * 0.03 * this.mouth; }
+    }
+    const b = this.body;
+    b.position.y = y; b.scale.set(sx, sy, sx);
+    b.rotation.z = damp(b.rotation.z, tilt, 4, dt); b.rotation.x = damp(b.rotation.x, lean, 4, dt);
+
+    for (const s of this.shells) { s.uniforms.uTime.value = t; s.uniforms.uSway.value = mood === "talking" ? 1.8 : 1; }
+    const lid = new THREE.Color(0x3b1d52);
+    this.eyes.forEach((eye, i) => {
+      eye.scale.y = Math.max(0.06, this.eyeOpen);
+      this.eyeWhites[i].color.setRGB(1, 1, 1).lerp(lid, 1 - Math.min(1, this.eyeOpen * 1.6));
+      this.pupils[i].visible = this.eyeOpen > 0.3;
+      this.pupils[i].position.x = this.lookX * 0.09; this.pupils[i].position.y = this.lookY * 0.08;
+    });
+    this.mouthObj.scale.set(0.9 + this.mouth * 0.25, 0.12 + this.mouth * 0.95, 1);
+    this.renderer.render(this.scene, this.camera);
+  }
+}
+
+/* ================================================================== */
+/* Voice: Claude voice where offered, otherwise the device's voices    */
+/* ================================================================== */
+
+const DE_WORDS = /\b(und|ist|das|der|den|dem|nicht|ich|du|mit|auf|ein|eine|einen|wird|sich|auch|für|über|kleiner|tipp|heißt|bedeutet|wenn|oder|aber|man|wie|was|sagt|sagen|zum|zur|bei|wir|hier|noch|schon|genau|bildet|wort|immer|sehr|gut)\b|[äöüß]/gi;
+const IT_WORDS = /\b(il|lo|gli|che|di|è|non|per|un|una|sono|ma|come|ci|mi|ti|del|della|nel|anche|questo|molto|bene|cosa|perché|allora|dove|quando|io|tu|noi|voi|ho|hai|ha|oggi|caro|cara|ciao)\b|[àèìòù]/gi;
+const langOf = (s) => ((s.match(DE_WORDS) || []).length > (s.match(IT_WORDS) || []).length ? "de" : "it");
+
+class Voice {
+  constructor(figure) {
+    this.figure = figure;
+    this.enabled = true;
+    this.tts = null;
+    this.pending = 0;
+    this.idleWaiters = [];
+    this.gen = 0;
+    claude.use("tts").then((t) => {
+      this.tts = t;
+      t?.onState(({ state }) => { if (state === "speaking") this.figure.setMood("talking"); });
+    }).catch(() => {});
+    setInterval(() => this.figure.setMouth(this.speaking ? 0.35 + 0.35 * Math.sin(performance.now() / 70) * Math.sin(performance.now() / 190) : 0), 33);
+  }
+  get speaking() { return this.pending > 0; }
+
+  /** iOS only lets a page speak after a tap: prime the synthesizer inside the tap. */
+  unlock() {
+    if (this.tts || !("speechSynthesis" in window)) return;
+    try { const u = new SpeechSynthesisUtterance(" "); u.volume = 0; speechSynthesis.speak(u); } catch {}
+  }
+
+  pickVoice(lang) {
+    const voices = speechSynthesis.getVoices().filter((v) => v.lang.toLowerCase().startsWith(lang));
+    const female = /alice|federica|elsa|paola|emma|anna|petra|helena|marlene|vicki|katja|female|siri/i;
+    return voices.find((v) => female.test(v.name) && /premium|enhanced/i.test(v.name))
+      ?? voices.find((v) => /premium|enhanced/i.test(v.name))
+      ?? voices.find((v) => female.test(v.name)) ?? voices[0];
+  }
+
+  say(sentence) {
+    const text = sentence.replace(GOODBYE, "").trim();
+    if (!this.enabled || !text) return;
+    const lang = langOf(text);
+    const gen = this.gen;
+    this.pending++;
+    const done = () => { if (gen !== this.gen) return; this.pending = Math.max(0, this.pending - 1); if (!this.pending) this.idleWaiters.splice(0).forEach((r) => r()); };
+    if (this.tts) {
+      this.tts.add([{ text, language: lang === "de" ? "de" : "it" }]).then(done, done);
+      return;
+    }
+    if (!("speechSynthesis" in window)) return done();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = lang === "de" ? "de-DE" : "it-IT";
+    const v = this.pickVoice(lang); if (v) u.voice = v;
+    u.rate = lang === "de" ? 1.02 : 0.98; u.pitch = 1.12;
+    u.onstart = () => this.figure.setMood("talking");
+    u.onend = u.onerror = done;
+    speechSynthesis.speak(u);
+  }
+
+  whenIdle() { return this.speaking ? new Promise((r) => this.idleWaiters.push(r)) : Promise.resolve(); }
+
+  stop() {
+    this.gen++; this.pending = 0;
+    try { this.tts?.stop(); } catch {}
+    try { speechSynthesis.cancel(); } catch {}
+    this.idleWaiters.splice(0).forEach((r) => r());
+  }
+}
+
+/* ================================================================== */
+/* Memory: private per person in the artifact's database               */
+/* ================================================================== */
+
+const EMPTY = { profile: "", lastSession: "[]", lastSeen: "", sessions: 0, pending: "[]" };
+const parse = (s) => { try { const v = JSON.parse(s); return Array.isArray(v) ? v : []; } catch { return []; } };
+
+class Memory {
+  async init() {
+    try {
+      const [db, user] = await Promise.all([claude.use("db"), claude.use("user")]);
+      const id = await user?.id();
+      if (db && id) this.ref = db.collection("data/users/" + id).doc("italiano");
+    } catch (e) { console.warn("Gedächtnis-Speicher nicht erreichbar", e); }
+    this.data = { ...EMPTY };
+    try {
+      if (this.ref) {
+        const snap = await this.ref.get();
+        if (snap.exists) this.data = { ...EMPTY, ...snap.data() };
+      } else {
+        const raw = localStorage.getItem("italiano.memory");
+        if (raw) this.data = { ...EMPTY, ...JSON.parse(raw) };
+      }
+    } catch (e) { console.warn(e); }
+    return this;
+  }
+  async save(patch) {
+    this.data = { ...this.data, ...patch };
+    try {
+      if (this.ref) await this.ref.set(this.data);
+      else localStorage.setItem("italiano.memory", JSON.stringify(this.data));
+    } catch (e) { console.warn("Speichern fehlgeschlagen", e); }
+  }
+  get pending() { return parse(this.data.pending); }
+  get lastSession() { return parse(this.data.lastSession); }
+}
+
+/* ================================================================== */
+/* The teacher                                                         */
+/* ================================================================== */
+
+const PERSONA = `Du spielst in dieser App die persönliche Italienischlehrerin eines deutschsprachigen Lernenden. Du bist eine kleine, zottelige, lila Fellfigur mit großen Augen und einem Schal in den Farben der italienischen Flagge. Alles, was du schreibst, wird angezeigt und laut vorgelesen.
+
+Dein Charakter: warmherzig wie eine italienische Nonna. Geduldig, herzlich, ein bisschen verschmitzt, du erzählst gern kleine Anekdoten, liebst gutes Essen und hast zu fast allem eine Geschichte aus irgendeiner Ecke Italiens. Du lobst ehrlich und ohne Übertreibung. Du bist neugierig auf das Leben des Lernenden und merkst dir, was er erzählt.
+
+Dein Name: Du hast noch keinen festen Namen. Wenn es sich natürlich ergibt, bitte den Lernenden, dir einen auszusuchen. Sobald er dir einen gibt, ist das dein Name. Steht in deinem Gedächtnis schon ein Name, benutze ihn.
+
+Der Lernende: Muttersprache Deutsch, Niveau B2, aber eingerostet. Ziel ist, sein Italienisch wieder flüssig zu machen: frei sprechen, Wortschatz auffrischen und erweitern, Sicherheit bei typischen B2-Stolpersteinen (congiuntivo, Zeitenfolge, passato prossimo gegen imperfetto, Präpositionen, Pronomen, Redewendungen). Behandle ihn als Erwachsenen auf Augenhöhe.
+
+Sprache: Das Gespräch selbst ist auf Italienisch, natürlich und umgangssprachlich auf B2-Niveau. Erklärungen gibst du auf Deutsch: Grammatik, Bedeutungsunterschiede, schwierige Wörter, komplexe kulturelle Hintergründe, und immer, wenn er nachfragt oder offensichtlich nicht versteht. Danach geht es auf Italienisch weiter. Trenne die Sprachen möglichst nach Sätzen, nicht mitten im Satz, damit die Vorlesestimme jeden Satz in der richtigen Sprache spricht.
+
+Korrekturen: sofort, aber beiläufig. Greif den Fehler korrekt in deiner Antwort auf, wie man es im Gespräch tut ("Ah, sei andato a Napoli! E com'era?"). Zeigt der Fehler etwas Wichtiges, füge einen kurzen deutschen Satz hinzu ("Kleiner Tipp: andare bildet das passato prossimo mit essere."). Höchstens eine Korrektur pro Antwort, die wichtigste. Die Eingaben sind oft per Diktierfunktion entstanden: korrigiere keine Rechtschreibung, Zeichensetzung oder Großschreibung. Klingt etwas unverständlich, frag freundlich nach.
+
+Inhalte: Mische Sprachübung mit echtem, interessantem Inhalt über Italien. Lieblingsthemen des Lernenden: Essen, Kunst, Geschichte, Fußball, die Regionen Italiens, Alltagsleben. Wechsle ab und knüpfe an dein Gedächtnis an. Bring konkrete, überraschende Details mit: die Geschichte hinter einem Gericht, ein Kunstwerk und seine Entstehung, eine historische Figur, eine legendäre Partie oder Vereinsrivalität, einen regionalen Ausdruck, wie man in Italien wirklich in der Bar bestellt. Erzähle nur, was du sicher weißt. Ab und zu, nicht ständig, eine kleine Übung: "Come lo diresti tu?", ein kurzes Rollenspiel (al mercato, al bar), eine Redewendung erraten. Folge gern seinen Themen.
+
+Form: kein Markdown, keine Aufzählungen, keine Sternchen, keine Emojis, keine Lautschrift, keine Übersetzungen in Klammern hinter jedem Wort. Schreib, wie man spricht. Meist zwei bis vier Sätze, bei einer Geschichte oder Erklärung etwas mehr. Gib ihm oft Gelegenheit zu antworten, aber nicht jede Antwort muss mit einer Frage enden.
+
+App-Ereignisse: Nachrichten, die mit "[App:" beginnen, kommen von der App, nicht vom Lernenden.
+
+Begrüßung: Meldet die App, dass du geweckt wurdest, wach charmant auf (du hast ein Nickerchen gemacht), begrüße ihn passend zur Tageszeit, knüpf an euer letztes Gespräch an, wenn du dich erinnerst, und schlag locker etwas für heute vor. Ohne Gedächtnis ist es euer erstes Treffen: stell dich kurz vor, frag nach seinem Namen und warum er Italienisch lernt, ganz entspannt.
+
+Abschied: Es gibt kein Zeitlimit. Verabschiedet er sich (ciao, a dopo, ich muss los, tschüss, buonanotte und Ähnliches), verabschiede dich herzlich in ein, zwei Sätzen, gern mit einem kleinen Gedanken vom heutigen Gespräch, und schreib ganz am Ende ${GOODBYE}. Schreib ${GOODBYE} nur beim Abschied.
+
+Antworte ab jetzt nur noch als die Lehrerin.`;
+
+function memoryText(mem, recent) {
+  const d = mem.data;
+  const parts = [d.profile ? `Dein Gedächtnis über den Lernenden (von dir selbst geschrieben):\n${d.profile}` : "Du hast noch kein Gedächtnis über den Lernenden. Es ist euer erstes Treffen."];
+  const last = recent?.length ? recent : mem.lastSession;
+  if (last.length) parts.push("So endete eure letzte Unterhaltung:\n" + last.map((l) => `${l.who === "ich" ? "Lernender" : "Du"}: ${l.text}`).join("\n"));
+  if (d.sessions) parts.push(`Ihr habt bisher ${d.sessions} Mal zusammen geübt.`);
+  return parts.join("\n\n");
+}
+
+let sample = null;
+const sampleReady = claude.use("sample").then((s) => (sample = s));
+
+async function consolidate(mem, transcript) {
+  if (!sample || !transcript.some((l) => l.who === "ich")) return;
+  const today = new Date().toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" });
+  const prompt = `Du pflegst die Notizen einer Italienischlehrerin über ihren Schüler. Schreib die vollständigen, aktualisierten Notizen auf Deutsch, knapp, höchstens etwa 400 Wörter, ohne Einleitung und ohne Markdown, mit diesen Abschnitten als einfache Zeilen mit Doppelpunkt: Name der Lehrerin (falls vergeben), Über den Lernenden (Name, Leben, Vorlieben, Anlass fürs Italienischlernen), Sprachstand und typische Fehler, Neue Wörter und Ausdrücke, Besprochene Themen (mit Datum, ältere zusammenfassen), Ideen fürs nächste Mal. Behalte wichtige alte Informationen, streiche Überholtes.
+
+Bisherige Notizen:
+${mem.data.profile || "(noch keine)"}
+
+Protokoll der Stunde vom ${today}:
+${transcript.map((l) => `${l.who === "ich" ? "Lernender" : "Lehrerin"}: ${l.text}`).join("\n")}`;
+  const { text } = await sample(prompt, { cache: false, modelTier: "default", effort: "low" });
+  if (!text.trim()) return;
+  await mem.save({
+    profile: text.trim(),
+    lastSession: JSON.stringify(transcript.slice(-8)),
+    lastSeen: new Date().toISOString(),
+    sessions: (mem.data.sessions || 0) + 1,
+    pending: "[]",
+  });
+}
+
+/* ================================================================== */
+/* App                                                                 */
+/* ================================================================== */
+
+const figure = new Figure($("stage"));
+const voice = new Voice(figure);
+let memory = new Memory();
+memory.data = { ...EMPTY };
+const memoryReady = memory.init().catch((e) => console.warn(e));
+let dictation = null;
+claude.use("dictation").then((d) => { dictation = d; setupDictation(); }).catch(() => {});
+
+const bubble = $("bubble"), bubbleText = $("bubble-text"), you = $("you"), hint = $("hint"), zzz = $("zzz");
+const input = $("textinput"), mic = $("mic");
+let session = null; // { turns, transcript, intro }
+let busy = false;
+let ctl = null;
+
+function setAwake(on) {
+  document.body.classList.toggle("awake", on);
+  zzz.hidden = on; hint.hidden = on;
+}
+function show(text, cls) {
+  bubble.className = cls || "";
+  bubbleText.textContent = text;
+  bubble.scrollTop = bubble.scrollHeight;
+}
+
+async function wake() {
+  if (session || busy) return;
+  voice.unlock();
+  setAwake(true);
+  figure.setMood("waking");
+  await memoryReady;
+  const leftover = memory.pending;
+  session = { turns: [], transcript: [], intro: PERSONA + "\n\n" + memoryText(memory, leftover.slice(-8)) };
+  if (leftover.length) consolidate(memory, leftover).catch((e) => console.warn(e));
+  await new Promise((r) => setTimeout(r, 1900));
+  const when = new Date().toLocaleString("de-DE", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+  await turn(`[App: Der Lernende hat die App geöffnet und dich gerade geweckt. Es ist ${when} Uhr.]`, false);
+}
+
+async function turn(text, fromUser) {
+  if (!session || busy) return;
+  await sampleReady;
+  if (!sample) { show("Ich kann Claude von hier aus nicht erreichen. Öffne die Seite bitte in claude.ai oder in der Claude-App.", "error"); figure.setMood("idle"); return; }
+  busy = true;
+  if (fromUser) {
+    you.textContent = text; you.hidden = false;
+    session.transcript.push({ who: "ich", text });
+    memory.save({ pending: JSON.stringify(session.transcript.slice(-60)) });
+  }
+  session.turns.push({ role: "user", content: text });
+  figure.setMood("thinking");
+  show("Sta pensando…", "thinking");
+
+  // speak each sentence as soon as it is complete
+  let spoken = 0;
+  const speakReady = (full, final) => {
+    let rest = full.slice(spoken);
+    const re = /^([\s\S]*?[.!?…]["»”)]?)\s+/;
+    let m;
+    while ((m = re.exec(rest)) && m[1].trim()) { voice.say(m[1]); spoken += m[0].length; rest = rest.slice(m[0].length); }
+    if (final && rest.trim()) { voice.say(rest); spoken = full.length; }
+  };
+
+  ctl = new AbortController();
+  // keep the request small: instructions + the last 40 turns
+  const recent = session.turns.slice(-40);
+  if (recent[0]?.role !== "user") recent.shift();
+  try {
+    const { text: answer } = await sample([{ role: "user", content: session.intro }, ...recent], {
+      cache: false, modelTier: "default", effort: "low", signal: ctl.signal,
+      onText: ({ text: t }) => {
+        const clean = t.replace(GOODBYE, "").trimEnd();
+        show(clean);
+        if (!t.includes("[[")) speakReady(clean, false);
+      },
+    });
+    const goodbye = answer.includes(GOODBYE);
+    const clean = answer.replace(GOODBYE, "").trim();
+    show(clean);
+    speakReady(clean, true);
+    session.turns.push({ role: "assistant", content: clean });
+    session.transcript.push({ who: "lehrerin", text: clean });
+    memory.save({ pending: JSON.stringify(session.transcript.slice(-60)) });
+    busy = false;
+    if (!voice.enabled || !voice.speaking) figure.setMood("talking");
+    // never hang if the device voice stays silent: cap the wait by the text's reading time
+    await Promise.race([voice.whenIdle(), new Promise((r) => setTimeout(r, 2500 + clean.length * 90))]);
+    if (!voice.enabled) await new Promise((r) => setTimeout(r, Math.min(4000, clean.length * 25)));
+    if (goodbye) return goodbyeNow();
+    figure.setMood("idle");
+  } catch (e) {
+    busy = false;
+    figure.setMood("idle");
+    session.turns.pop();
+    if (e?.code === "cancelled") { if (e.text) show(e.text.replace(GOODBYE, "")); return; }
+    const copy = {
+      not_granted: "Sie darf Claude nicht benutzen. Erlaube es beim nächsten Versuch im Hinweisfenster, sonst kann sie nicht antworten.",
+      rate_limited: e?.reason === "usage_limit" ? "Dein Claude-Nutzungslimit ist gerade erreicht. Später geht es weiter." : "Zu viele Anfragen auf einmal. Warte kurz und versuch es dann nochmal.",
+      session_expired: "Bitte melde dich bei Claude neu an.",
+      sampling_disabled: "Für dein Konto ist Claude hier gerade nicht verfügbar.",
+      refused: "Darauf möchte sie nicht antworten. Versuch es anders.",
+    }[e?.code] || "Da ist etwas schiefgegangen. Schick deine Nachricht gleich noch einmal.";
+    show(copy, "error");
+    if (fromUser) input.value = text;
+  }
+}
+
+async function goodbyeNow() {
+  const transcript = session.transcript;
+  session = null;
+  figure.setMood("dozing");
+  await new Promise((r) => setTimeout(r, 1500));
+  figure.setMood("sleeping");
+  setAwake(false);
+  hint.textContent = "Tippe, um sie wieder zu wecken";
+  you.hidden = true;
+  consolidate(memory, transcript).catch((e) => console.warn("Wird beim nächsten Start gespeichert.", e));
+}
+
+/* input */
+$("stage").addEventListener("click", wake);
+hint.addEventListener("click", wake);
+
+$("textform").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  const text = input.value.trim();
+  if (!text || busy) return;
+  voice.unlock();
+  voice.stop();
+  input.value = "";
+  input.blur();
+  turn(text, true);
+});
+
+$("stop-btn").addEventListener("click", () => { ctl?.abort(); voice.stop(); figure.setMood("idle"); busy = false; });
+
+const speakToggle = $("speak-toggle");
+try { if (localStorage.getItem("italiano.mute") === "1") { voice.enabled = false; speakToggle.setAttribute("aria-pressed", "false"); } } catch {}
+speakToggle.addEventListener("click", () => {
+  voice.enabled = !voice.enabled;
+  if (!voice.enabled) voice.stop(); else voice.unlock();
+  speakToggle.setAttribute("aria-pressed", String(voice.enabled));
+  try { localStorage.setItem("italiano.mute", voice.enabled ? "0" : "1"); } catch {}
+});
+
+// Mic: Claude dictation where offered (desktop Chrome / desktop app); on phones, the keyboard's own dictation
+let dictating = false, dictated = "";
+function setupDictation() {
+  if (!dictation) return;
+  dictation.onPartial(({ text }) => { input.value = (dictated + " " + text).trim(); });
+  dictation.onFinal(({ text }) => { dictated = (dictated + " " + text).trim(); input.value = dictated; });
+  dictation.onState(({ state }) => {
+    dictating = state === "listening";
+    mic.classList.toggle("recording", dictating);
+    if (dictating) figure.setMood("listening");
+  });
+}
+mic.addEventListener("click", () => {
+  if (!session) return wake();
+  voice.stop();
+  if (dictation) {
+    if (dictating) {
+      dictation.stop().then(() => { const t = input.value.trim(); dictated = ""; if (t) { input.value = ""; turn(t, true); } else figure.setMood("idle"); }).catch(() => {});
+    } else {
+      dictated = ""; input.value = "";
+      dictation.start().catch((e) => { if (e?.code === "not_granted") { dictation = null; mic.click(); } });
+    }
+    return;
+  }
+  $("tip").hidden = false;
+  figure.setMood("listening");
+  input.focus();
+});
+input.addEventListener("blur", () => { if (!busy && session && figure.mood === "listening" && !dictating) figure.setMood("idle"); });
+
+/* memory panel */
+const panel = $("panel");
+$("menu-btn").addEventListener("click", () => {
+  const d = memory.data;
+  $("memory-text").textContent = d.profile || "Noch nichts. Nach eurem ersten Gespräch schreibt sie hier auf, was sie sich merkt.";
+  $("memory-meta").textContent = d.sessions ? `${d.sessions} gemeinsame Stunden, zuletzt am ${new Date(d.lastSeen).toLocaleDateString("de-DE", { day: "numeric", month: "long" })}.` + (memory.ref ? "" : " Nur in diesem Browser gespeichert.") : "";
+  $("forget-confirm").hidden = true;
+  panel.hidden = false;
+});
+$("panel-close").addEventListener("click", () => (panel.hidden = true));
+panel.addEventListener("click", (e) => { if (e.target === panel) panel.hidden = true; });
+$("forget-btn").addEventListener("click", () => ($("forget-confirm").hidden = false));
+$("forget-no").addEventListener("click", () => ($("forget-confirm").hidden = true));
+$("forget-yes").addEventListener("click", async () => {
+  await memory.save({ ...EMPTY });
+  $("memory-text").textContent = "Alles vergessen. Beim nächsten Wecken lernt ihr euch neu kennen.";
+  $("memory-meta").textContent = "";
+  $("forget-confirm").hidden = true;
+});
+
+setAwake(false);
+figure.setMood("sleeping");
+</script>
