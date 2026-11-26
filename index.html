@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
+    <meta name="theme-color" content="#f6e7d4" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Italiano" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icon-180.png" />
+    <title>Italiano</title>
+  </head>
+  <body>
+    <main id="app">
+      <canvas id="stage" aria-label="Deine Italienischlehrerin"></canvas>
+      <div id="zzz" aria-hidden="true"><span>z</span><span>z</span><span>Z</span></div>
+
+      <button id="gear" class="icon-btn" aria-label="Einstellungen">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+
+      <section id="talk">
+        <p id="you" hidden></p>
+        <p id="bubble">
+          <span id="bubble-text"></span>
+        </p>
+      </section>
+
+      <p id="hint">Tippe, um sie zu wecken</p>
+
+      <footer id="controls">
+        <button id="kbd" class="icon-btn" aria-label="Tippen statt sprechen">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="13" rx="2.5"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 15h10"/></svg>
+        </button>
+        <button id="mic" aria-label="Sprechen">
+          <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4"/></svg>
+        </button>
+        <span class="icon-btn spacer" aria-hidden="true"></span>
+      </footer>
+
+      <form id="textform" hidden>
+        <input id="textinput" type="text" autocomplete="off" autocapitalize="sentences" placeholder="Scrivi qui…" enterkeyhint="send" />
+        <button type="submit" aria-label="Senden">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </button>
+      </form>
+    </main>
+
+    <dialog id="settings">
+      <form method="dialog" id="settings-form">
+        <h2>Einstellungen</h2>
+        <p class="note">Die Schlüssel werden nur auf diesem Gerät gespeichert.</p>
+        <label>Anthropic-API-Schlüssel (für das Gespräch)
+          <input name="anthropicKey" type="password" autocomplete="off" placeholder="sk-ant-…" />
+          <small>Bekommst du unter console.anthropic.com → API Keys.</small>
+        </label>
+        <label>ElevenLabs-API-Schlüssel (Stimme &amp; Spracherkennung)
+          <input name="elevenKey" type="password" autocomplete="off" />
+          <small>elevenlabs.io → Profil → API Keys. Ohne Schlüssel spricht die Handy-Stimme, und du kannst nur tippen.</small>
+        </label>
+        <label>ElevenLabs-Stimmen-ID
+          <input name="voiceId" type="text" autocomplete="off" />
+          <small>In der Voice Library eine Stimme wählen, zu „My Voices“ hinzufügen und dort die ID kopieren.</small>
+        </label>
+        <div class="row">
+          <button value="save" class="primary">Speichern</button>
+        </div>
+        <h3>Gedächtnis</h3>
+        <div class="row wrap">
+          <button type="button" id="mem-export">Exportieren</button>
+          <button type="button" id="mem-import">Importieren</button>
+          <button type="button" id="mem-reset" class="danger">Löschen</button>
+          <input type="file" id="mem-file" accept="application/json" hidden />
+        </div>
+        <p class="note" id="credits"></p>
+      </form>
+    </dialog>
+
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

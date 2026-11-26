@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#fbf1e4"/>
+  <g fill="#9a6ad2">
+    <circle cx="256" cy="270" r="170"/>
+    <path d="M110 200 l-28 -30 l40 6z M150 130 l-10 -40 l32 26z M210 100 l4 -42 l22 38z M290 100 l20 -38 l6 42z M352 128 l30 -28 l-8 40z M400 196 l38 -24 l-20 36z M96 290 l-38 -6 l38 -20z M416 290 l38 -14 l-34 -14z"/>
+  </g>
+  <rect x="96" y="352" width="320" height="34" rx="17" fill="#f7f3ea"/>
+  <rect x="96" y="352" width="107" height="34" rx="17" fill="#2f9e55"/>
+  <rect x="309" y="352" width="107" height="34" rx="17" fill="#d8413a"/>
+  <ellipse cx="200" cy="240" rx="40" ry="44" fill="#fff"/>
+  <ellipse cx="312" cy="240" rx="40" ry="44" fill="#fff"/>
+  <circle cx="206" cy="248" r="20" fill="#1b1020"/>
+  <circle cx="318" cy="248" r="20" fill="#1b1020"/>
+  <circle cx="213" cy="240" r="7" fill="#fff"/>
+  <circle cx="325" cy="240" r="7" fill="#fff"/>
+  <circle cx="256" cy="290" r="13" fill="#6b2d5c"/>
+  <path d="M226 316 q30 26 60 0" stroke="#3a0f2a" stroke-width="10" fill="none" stroke-linecap="round"/>
+</svg>
