@@ -133,6 +133,7 @@
   .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
   .btn.danger { color: var(--accent); }
   .note { font-size: 13px; color: var(--muted); margin: 0; }
+  .field { font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); width: 100%; box-sizing: border-box; }
   @media (prefers-reduced-motion: reduce) { #zzz span, #hint, #mic.recording { animation: none; } #zzz span { opacity: .7; position: static; } }
 </style>
 
@@ -174,13 +175,24 @@
 
   <div id="panel" hidden>
     <div id="panel-inner" role="dialog" aria-labelledby="panel-title">
-      <h2 id="panel-title">Was sie über dich weiß</h2>
+      <h2 id="panel-title">Gedächtnis und Stimme</h2>
       <pre id="memory-text"></pre>
       <p class="note" id="memory-meta"></p>
       <div class="row">
         <button class="btn" id="panel-close" type="button">Schließen</button>
         <button class="btn danger" id="forget-btn" type="button">Alles vergessen</button>
       </div>
+      <h3>ElevenLabs-Stimme (Experiment)</h3>
+      <p class="note">Bleibt nur in diesem Browser gespeichert. Blockiert claude.ai die Verbindung, spricht sie automatisch mit der Gerätestimme weiter.</p>
+      <label class="note" for="el-key">API-Schlüssel</label>
+      <input id="el-key" type="password" autocomplete="off" class="field">
+      <label class="note" for="el-voice">Stimmen-ID</label>
+      <input id="el-voice" type="text" autocomplete="off" class="field">
+      <div class="row">
+        <button class="btn primary" id="el-save" type="button">Speichern und testen</button>
+        <button class="btn" id="el-clear" type="button">Entfernen</button>
+      </div>
+      <p class="note" id="el-status" role="status"></p>
       <div class="row" id="forget-confirm" hidden>
         <p class="note" style="flex-basis:100%">Wirklich? Sie vergisst dann deinen Namen, deine Fortschritte und alle Themen.</p>
         <button class="btn" id="forget-no" type="button">Nein, behalten</button>
@@ -435,16 +447,71 @@ class Voice {
     this.pending = 0;
     this.idleWaiters = [];
     this.gen = 0;
+    this.chain = Promise.resolve();
+    this.level = new Uint8Array(256);
+    this.el = { key: "", voiceId: "" };
+    this.elFailed = false;
+    this.onElError = () => {};
+    try { this.el = { ...this.el, ...JSON.parse(localStorage.getItem("italiano.eleven") || "{}") }; } catch {}
     claude.use("tts").then((t) => {
       this.tts = t;
       t?.onState(({ state }) => { if (state === "speaking") this.figure.setMood("talking"); });
     }).catch(() => {});
-    setInterval(() => this.figure.setMouth(this.speaking ? 0.35 + 0.35 * Math.sin(performance.now() / 70) * Math.sin(performance.now() / 190) : 0), 33);
+    setInterval(() => this.figure.setMouth(this.mouthLevel()), 33);
   }
   get speaking() { return this.pending > 0; }
+  get useEleven() { return !!(this.el.key && this.el.voiceId && !this.elFailed); }
+
+  mouthLevel() {
+    if (!this.speaking) return 0;
+    if (this.source && this.analyser) {
+      this.analyser.getByteTimeDomainData(this.level);
+      let sum = 0; for (const v of this.level) sum += ((v - 128) / 128) ** 2;
+      return Math.min(1, Math.sqrt(sum / this.level.length) * 5.5);
+    }
+    return 0.35 + 0.35 * Math.sin(performance.now() / 70) * Math.sin(performance.now() / 190);
+  }
+
+  async fetchEleven(text) {
+    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(this.el.voiceId)}?output_format=mp3_44100_128`, {
+      method: "POST",
+      headers: { "xi-api-key": this.el.key, "Content-Type": "application/json", Accept: "audio/mpeg" },
+      body: JSON.stringify({ text, model_id: "eleven_multilingual_v2", voice_settings: { stability: 0.45, similarity_boost: 0.8, style: 0.35, use_speaker_boost: true } }),
+    });
+    if (!res.ok) { const err = new Error(`ElevenLabs antwortet mit Fehler ${res.status}.`); err.status = res.status; throw err; }
+    return this.ctx.decodeAudioData(await res.arrayBuffer());
+  }
+
+  playBuffer(buf) {
+    return new Promise((resolve) => {
+      const src = this.ctx.createBufferSource();
+      src.buffer = buf; src.connect(this.analyser);
+      src.onended = () => { if (this.source === src) this.source = null; resolve(); };
+      this.source = src;
+      this.figure.setMood("talking");
+      src.start();
+    });
+  }
+
+  speakDevice(text, lang) {
+    return new Promise((resolve) => {
+      if (!("speechSynthesis" in window)) return resolve();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = lang === "de" ? "de-DE" : "it-IT";
+      const v = this.pickVoice(lang); if (v) u.voice = v;
+      u.rate = lang === "de" ? 1.02 : 0.98; u.pitch = 1.12;
+      u.onstart = () => this.figure.setMood("talking");
+      u.onend = u.onerror = () => resolve();
+      speechSynthesis.speak(u);
+    });
+  }
 
   /** iOS only lets a page speak after a tap: prime the synthesizer inside the tap. */
   unlock() {
+    try {
+      if (!this.ctx) { this.ctx = new AudioContext(); this.analyser = this.ctx.createAnalyser(); this.analyser.fftSize = 512; this.analyser.connect(this.ctx.destination); }
+      this.ctx.resume();
+    } catch {}
     if (this.tts || !("speechSynthesis" in window)) return;
     try { const u = new SpeechSynthesisUtterance(" "); u.volume = 0; speechSynthesis.speak(u); } catch {}
   }
@@ -464,6 +531,22 @@ class Voice {
     const gen = this.gen;
     this.pending++;
     const done = () => { if (gen !== this.gen) return; this.pending = Math.max(0, this.pending - 1); if (!this.pending) this.idleWaiters.splice(0).forEach((r) => r()); };
+    if (this.useEleven && this.ctx) {
+      const audio = this.fetchEleven(text);
+      audio.catch(() => {});
+      this.chain = this.chain.then(async () => {
+        if (gen !== this.gen) return;
+        try {
+          const buf = await audio;
+          if (gen === this.gen) await this.playBuffer(buf);
+        } catch (e) {
+          this.elFailed = true; // fall back for the rest of this visit; "Speichern und testen" tries again
+          this.onElError(e);
+          if (gen === this.gen) await this.speakDevice(text, lang);
+        }
+      }).then(done, done);
+      return;
+    }
     if (this.tts) {
       this.tts.add([{ text, language: lang === "de" ? "de" : "it" }]).then(done, done);
       return;
@@ -482,6 +565,9 @@ class Voice {
 
   stop() {
     this.gen++; this.pending = 0;
+    this.chain = Promise.resolve();
+    try { this.source?.stop(); } catch {}
+    this.source = null;
     try { this.tts?.stop(); } catch {}
     try { speechSynthesis.cancel(); } catch {}
     this.idleWaiters.splice(0).forEach((r) => r());
@@ -771,7 +857,33 @@ $("menu-btn").addEventListener("click", () => {
   $("memory-text").textContent = d.profile || "Noch nichts. Nach eurem ersten Gespräch schreibt sie hier auf, was sie sich merkt.";
   $("memory-meta").textContent = d.sessions ? `${d.sessions} gemeinsame Stunden, zuletzt am ${new Date(d.lastSeen).toLocaleDateString("de-DE", { day: "numeric", month: "long" })}.` + (memory.ref ? "" : " Nur in diesem Browser gespeichert.") : "";
   $("forget-confirm").hidden = true;
+  $("el-key").value = voice.el.key; $("el-voice").value = voice.el.voiceId;
+  $("el-status").textContent = voice.el.key ? (voice.elFailed ? "Zuletzt blockiert oder fehlgeschlagen. Sie spricht mit der Gerätestimme." : "ElevenLabs ist eingerichtet.") : "";
   panel.hidden = false;
+});
+voice.onElError = (e) => {
+  const msg = e?.status === 401 ? "ElevenLabs lehnt den Schlüssel ab. Bitte prüfen."
+    : e?.status ? `ElevenLabs meldet Fehler ${e.status}. Prüfe Stimmen-ID und Guthaben.`
+    : "claude.ai hat die Verbindung zu ElevenLabs blockiert. Sie spricht jetzt mit der Gerätestimme.";
+  $("el-status").textContent = msg;
+};
+$("el-save").addEventListener("click", () => {
+  voice.unlock();
+  voice.el = { key: $("el-key").value.trim(), voiceId: $("el-voice").value.trim() };
+  voice.elFailed = false;
+  try { localStorage.setItem("italiano.eleven", JSON.stringify(voice.el)); } catch {}
+  if (!voice.el.key || !voice.el.voiceId) { $("el-status").textContent = "Bitte Schlüssel und Stimmen-ID eintragen."; return; }
+  $("el-status").textContent = "Teste die Verbindung …";
+  const was = voice.enabled; voice.enabled = true;
+  voice.say("Ciao! Questa è la mia nuova voce. Ti piace?");
+  voice.enabled = was;
+  voice.whenIdle().then(() => { if (!voice.elFailed) $("el-status").textContent = "Funktioniert. Ab jetzt spricht sie mit deiner ElevenLabs-Stimme."; });
+});
+$("el-clear").addEventListener("click", () => {
+  voice.el = { key: "", voiceId: "" }; voice.elFailed = false;
+  try { localStorage.removeItem("italiano.eleven"); } catch {}
+  $("el-key").value = ""; $("el-voice").value = "";
+  $("el-status").textContent = "Entfernt. Sie spricht wieder mit der Gerätestimme.";
 });
 $("panel-close").addEventListener("click", () => (panel.hidden = true));
 panel.addEventListener("click", (e) => { if (e.target === panel) panel.hidden = true; });
